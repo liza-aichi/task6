@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the address_book_feature1 feature.
+ */
+
+include_once 'address_book_feature1.features.inc';

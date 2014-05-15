@@ -1,0 +1,282 @@
+<?php
+
+
+// Load CRUD functions.
+module_load_include('crud.inc', 'address_book');
+/***
+ * implements hook_menu
+ * @return array
+ */
+function address_book_menu()
+{
+    return array(
+
+
+        'admin/structure/contacts' => array(
+            'title' => 'Contact',
+
+            'type' => MENU_NORMAL_ITEM,
+
+            'page callback' => 'address_book_manage_page',
+
+            'access callback' => 'user_access',
+
+            'access arguments' => array('administer site configuration'), //'administer site configuration',// 'user_access',
+
+
+        ),
+        'address-book/addcontact' => array(
+            'title' => 'Add',
+
+            'type' => MENU_LOCAL_TASK, //MENU_CALLBACK,
+
+            'page callback' => 'address_book_add',
+
+            'access callback' => TRUE, //'administer site configuration',// 'user_access',
+
+            'file' => 'address_book.admin.inc'
+        ),
+        'address-book/%/delete' => array(
+            'title' => 'delete',
+
+            'type' => MENU_NORMAL_ITEM,
+            'page callback' => 'drupal_get_form',
+            'page arguments' => array('address_book_delete_form', 1),
+
+            'access callback' => TRUE, //'administer site configuration',// 'user_access',
+
+
+        ),
+        'address-book/note/%' => array(
+            'title' => 'Note AJAX',
+            // 'type'=>MENU_CALLBACK,
+            'page callback' => 'address_book_dev_ajax',
+            'page arguments' => array(2),
+            'access callback' => TRUE,
+            'delivery callback' => 'ajax_deliver',
+        ),
+    );
+}
+
+/***
+ * go to add contact form
+ */
+function address_book_add()
+{
+    drupal_goto('address-book/add');
+}
+
+/***
+ * implements hook_entity_info
+ * @return array
+ */
+function address_book_entity_info()
+{
+    return array(
+        'address_book' => array(
+            'label' => t('Contact'),
+            'base table' => 'contact',
+            'label callback' => 'address_book_title_callback',
+            'fieldable' => TRUE,
+            'entity keys' => array(
+                'id' => 'cid',
+                'label' => 'title',
+//        'bundle' => 'type',
+            ),
+            'bundles' => array(
+                'address_book' => array(
+                    'label' => t('Contact'),
+                    'admin' => array(
+                        'path' => 'admin/structure/contacts',
+                        //  'access callback' =>TRUE,
+                        'access callback' => 'user_access',
+                        // 'access arguments' =>array('view content'),
+                        'access arguments' => array('administer site configuration'),
+                    ),
+                ),
+            ),
+
+// Entity API-related parameters.
+            'controller class' => 'EntityAPIController',
+            'entity class' => 'Entity',
+            'admin ui' => array(
+                'path' => 'address-book',
+                'file' => 'address_book.admin.inc',
+            ),
+            'module' => 'address_book',
+            'access callback' => 'address_book_access',
+        ),
+    );
+}
+
+/***
+ * function returns label for entity
+ * @param $entity
+ * @param $entity_type
+ * @return string
+ */
+function address_book_title_callback($entity, $entity_type)
+{
+    $wrapper = entity_metadata_wrapper($entity_type, $entity);
+    $title = '';
+
+    if ($wrapper->title->value() != '') {
+
+        $first = $wrapper->title->value();
+        $title = $first . ' ' . $wrapper->field_last_name1->value();
+
+    }
+    return $title;
+}
+
+/**
+ * Implements hook_permission().
+ *
+ * @return array
+ */
+function address_book_permission()
+{
+    return array(
+        'visit address book page' => array(
+            'title' => t('Allow user to visit address book page'),
+            'description' => t('Address book page is created by Adress book module.'),
+        ),
+    );
+}
+
+/**
+ * /**
+ * Access callback for contact entities.
+ *
+ * @param $op
+ * @param null $recipe
+ * @param null $account
+ * @return bool
+ */
+function address_book_access($op, $recipe = NULL, $account = NULL)
+{
+    return user_access('visit address book page'); //'post comments');
+}
+
+function address_book_manage_page()
+{
+    return t('Administration page for Recipes');
+}
+
+function address_book_preprocess_page(&$vars)
+{
+
+    if (strpos(request_uri(), 'address-book') !== FALSE) {
+        $breadcrumb[] = l('Home', '<front>');
+//dsm(base_path());
+        $breadcrumb[] = l('Address-book', 'address-book');
+        $parts = Explode('/', request_uri());
+        $id = $parts[count($parts) - 1];
+        $path = isset($_GET['q']) ? $_GET['q'] : '<front>';
+        $link = url($path, array('absolute' => TRUE));
+        if ($id == 'add') {
+            $breadcrumb[] = l('Add contact', $link);
+        } else if ($parts[count($parts) - 2] == 'manage') {
+            $breadcrumb[] = l('Edit contact', $link);
+        } else if ($parts[count($parts) - 2] == 'delete') {
+            $breadcrumb[] = l('Delete contact', $link);
+        } else if ($parts[count($parts) - 2] == 'contact' ||
+            $parts[count($parts) - 1] == 'contact'
+        ) {
+            $path = $parts[count($parts) - 1];
+
+            $path = str_replace('-', ' ', $path);
+            $breadcrumb[] = l($path, $link);
+        }
+        drupal_set_breadcrumb($breadcrumb);
+    }
+
+}
+
+/**
+ * Implements hook_init().
+ */
+function address_book_init()
+{
+    $path = drupal_get_path('module', 'address_book');
+    //dsm();
+    drupal_add_js($path . '/js/address_book.js');
+    drupal_add_js($path . '/js/address_book_delete_confirm.js');
+
+}
+/***
+ * delete contact
+ * @param $form
+ * @param $form_state
+ * @param $id
+ * @return mixed
+ */
+function address_book_delete_form($form, &$form_state, $id)
+{
+    address_book_delete($id);
+    drupal_goto('address-book');
+    return $form;
+}
+
+/***
+ * implements hook_views_pre_render
+ * @param $view
+ */
+function address_book_views_pre_render(&$view)
+{
+
+    drupal_add_library('system', 'drupal.ajax');
+
+    if ($view->name == 'contact' &&
+        isset($view->result[0]->field_field_notes1['0']['rendered']['#markup'])
+    ) {
+
+
+        $note = $view->result[0]->field_field_notes1['0']['rendered']['#markup'];
+
+        if (strlen($note) > 50) {
+            $link = array(
+                '#type' => 'link',
+                '#title' => t('Read more'),
+                '#href' => 'address-book/note/' . $view->args[0],
+                '#ajax' => array(
+
+                    'wrapper' => 'note',
+
+                    'method' => 'replace',
+                    'effect' => 'fade',
+                ),
+
+            );
+
+
+            $output = array(
+                '#theme' => 'html_tag',
+                '#tag' => 'div',
+                '#value' => substr($note, 0, 50) . drupal_render($link),
+                '#attributes' => array(
+                    'id' => 'note',
+                ),
+            );
+            $view->result[0]->field_field_notes1['0']['rendered']['#markup'] =
+                drupal_render($output);
+
+
+        }
+    }
+
+}
+
+/***
+ * ajax callback function
+ * @param string $var
+ * @return null|string
+ */
+function address_book_dev_ajax($var = '')
+{
+
+    $entity = address_book_load($var);
+    $a = field_view_field('address_book', $entity, 'field_notes1', 'label')[0]['#markup'];
+
+    return t($a);
+}

@@ -1,0 +1,9 @@
+name = Address book
+description = "Provides Contact entity type"
+
+core = 7.x
+dependencies[] = date
+dependencies[] = entity
+dependencies[] = rules
+dependencies[] = views
+dependencies[] = views_bulk_operations

@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * Install file of the module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function address_book_schema() {
+    return array(
+        'contact' => array(
+            'description' => t('Table for address book entities'),
+            'fields' => array(
+                'cid' => array(
+                    'description' => 'Primary key',
+                    'type' => 'serial',
+                    'unsigned' => TRUE,
+                    'not null' => TRUE,
+                ),
+
+                'title' => array(
+                    'description' => 'Contains label for contact',
+                    'type' => 'varchar',
+                    'length' => 255,
+                    'not null' => TRUE,
+                    'default' => '',
+                ),
+
+            ),
+            'primary key' => array('cid'),
+        ),
+    );
+}
